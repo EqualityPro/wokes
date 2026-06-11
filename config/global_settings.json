@@ -1,7 +1,8 @@
 {
     "typingIndicator": true,
-    "silentTextMessages": false,
+    "silentMessages": false,
     "offlineStatus": false,
+    "ocrApi": "helloworld",
     "website": {
         "enabled": true,
         "port": 1200,
@@ -28,15 +29,18 @@
         "commandToStopUser": "stop",
         "commandToStartUser": "start",
         "commandToRestartAfterCaptcha": "restart_captcha",
+        "commandToSleep": "sleep",
+        "CommandToSwitchChannel": "switch_channel",
+        "defaultSleepDuration": 600,
         "allowedUsers": []
     },
     "webhook": {
         "enabled": false,
-        "webhookUselessLog": false,
-        "webhookUrl": "Your webhook URL here!",
+        "logCommandSend": false,
+        "webhookUrl": "Webhook Url here!",
         "webhookCaptchaUrl": null,
-        "webhookUserIdToPingOnCaptcha": 1,
-        "animal_log": {
+        "webhookUserIdToPingOnCaptcha": "user id to ping here",
+        "animalLog": {
             "enabled": true,
             "rank": {
                 "common": false,
@@ -47,12 +51,14 @@
                 "gem": true,
                 "legendary": true,
                 "fabled": true,
-                "hidden": true
+                "hidden": true,
+                "distorted": true
             }
         },
         "others": {
-            "log_lootbox": true,
-            "log_crate": true
+            "logLootbox": true,
+            "logCrate": true,
+            "logChannelSwitch": true
         }
     },
     "console": {
@@ -69,7 +75,7 @@
             "bannedContent": "{username} Banned from OwO!",
             "reccur": {
                 "enabled": true,
-                "times_to_reccur": 3
+                "timesToReccur": 3
             }
         },
         "playAudio": {
@@ -106,17 +112,20 @@
     },
     "channelSwitcher": {
         "enabled": false,
+        "allUsers": {
+            "channels": [1,2,3]
+        },
         "users": [
             {
-                "userid": 23454123321,
-                "channels": [444234234, 23423423, 234324234]
+                "userid": "23454123321",
+                "channels": ["444234234", "23423423", "234324234"]
             },
             {
-                "userid": 23432454321,
-                "channels": [42342344, 552342345]
+                "userid": "23432454321",
+                "channels": ["42342344", "552342345"]
             }
         ],
-        "interval": [300, 600],
+        "interval": [20, 40],
         "delayBeforeSwitch": [2,4]
     }
 }

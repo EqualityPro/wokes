@@ -24,25 +24,25 @@ CONFIG_FILES = [
     "config/misc.json",
 ]
 
-prev_configs = {}
+prev_config = {}
 for path in CONFIG_FILES:
     try:
-        with open(path, "r") as f:
-            prev_configs[path] = json.load(f)
+        with open(path, "r", encoding="utf-8") as f:
+            prev_config[path] = json.load(f)
     except FileNotFoundError:
-        prev_configs[path] = {}
+        prev_config[path] = {}
 
 
 def read_tokens_file():
     try:
-        with open("tokens.txt", "r") as tokens_file:
+        with open("tokens.txt", "r", encoding="utf-8") as tokens_file:
             return tokens_file.read()
     except FileNotFoundError:
         return ""
 
 
 def write_tokens_file(content):
-    with open("tokens.txt", "w") as tokens_file:
+    with open("tokens.txt", "w", encoding="utf-8") as tokens_file:
         tokens_file.write(content)
 
 
@@ -67,12 +67,12 @@ def deep_merge(old, new):
 
 
 def merge_json_carry_over(path, prev_dict):
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         main_data = json.load(f)
 
     updated_data = deep_merge(prev_dict, main_data)
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(updated_data, f, indent=4)
 
 
@@ -90,26 +90,26 @@ def merge_custom_user_settings():
     Merge each <user_id>.settings.json with the new base settings.json.
     Keeps user overrides, adopts new defaults.
     """
-    base_path = "configs/settings.json"
+    base_path = "config/settings.json"
     try:
-        with open(base_path, "r") as f:
+        with open(base_path, "r", encoding="utf-8") as f:
             base_settings = json.load(f)
     except FileNotFoundError:
-        # This shouldn't happen since settings.json should always be there in configs folder
+        # This shouldn't happen since settings.json should always be there in config folder
         console.log("[red]Base settings.json not found, skipping user settings merge.")
         return
 
-    for filename in os.listdir("configs"):
+    for filename in os.listdir("config"):
         if filename.endswith(".settings.json") and filename != "settings.json":
-            user_path = os.path.join("configs", filename)
+            user_path = os.path.join("config", filename)
             try:
-                with open(user_path, "r") as uf:
+                with open(user_path, "r", encoding="utf-8") as uf:
                     user_data = json.load(uf)
                 console.log(
                     f"[cyan]Merging custom config {filename} with new settings.json..."
                 )
                 merged_data = deep_merge(user_data, base_settings)
-                with open(user_path, "w") as out:
+                with open(user_path, "w", encoding="utf-8") as out:
                     json.dump(merged_data, out, indent=4)
             except Exception as e:
                 console.log(f"[red]Failed to merge {filename}: {e}")
@@ -155,7 +155,7 @@ def pull_latest_changes_git():
     console.log("[bold green]Update complete!")
     for path in CONFIG_FILES:
         console.log(f"[bold green]Merging previous config into {path}...")
-        merge_json_carry_over(path, prev_configs.get(path, {}))
+        merge_json_carry_over(path, prev_config.get(path, {}))
 
     merge_custom_user_settings()
 

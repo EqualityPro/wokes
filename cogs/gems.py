@@ -12,9 +12,11 @@
 
 import asyncio
 import re
+import time
 
 from discord.ext import commands
 from discord.ext.commands import ExtensionNotLoaded
+from cogs._BASE import BaseCog
 
 
 """
@@ -83,9 +85,9 @@ def len_gems_in_use(msg):
     return sum(1 for gem in to_check if gem in msg)
 
 
-class Gems(commands.Cog):
+class Gems(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.grouped_gems = None
         self.available_gems = {}
         self.inventory_check = False
@@ -93,6 +95,7 @@ class Gems(commands.Cog):
         self.cache_gems_in_use = {}
         self.prev_count = 0
         self.count = 0
+        self.recent_special_gem_usage = 0
         self.gem_cmd = {
             "cmd_name": self.bot.alias["use"]["normal"],
             "cmd_arguments": "",
@@ -107,13 +110,32 @@ class Gems(commands.Cog):
             "id": "inv",
         }
 
+    @property
+    def settings(self):
+        return self.bot.settings_dict.autoUse.gems
+
+    def should_use_special_gem(self):
+        if not self.settings.gemsToUse["specialGem"]:
+            return False
+        if self.settings.dynamicSpecialGem and not self.bot.ongoing_owobot_event:
+            return False
+        return True
+
+    def is_special_gem_failure(self):
+        if not self.settings.dynamicSpecialGem:
+            return False
+        if self.recent_special_gem_usage == 0:
+            return False
+        usage_time = time.monotonic() - self.recent_special_gem_usage
+        return usage_time < 60
+
     def enabled_gem_types(self):
-        cnf = self.bot.settings_dict["autoUse"]["gems"]["gemsToUse"]
+        cnf = self.settings.gemsToUse
         return {
             "huntGem": cnf["huntGem"],
             "empoweredGem": cnf["empoweredGem"],
             "luckyGem": cnf["luckyGem"],
-            "specialGem": cnf["specialGem"],
+            "specialGem": self.should_use_special_gem(),
         }
 
     async def use_gems(self, available_gems, gems_in_use=None, full=False):
@@ -129,18 +151,17 @@ class Gems(commands.Cog):
             self.reduce_used_gems(result)
             if self.bot.hunt_disabled:
                 self.bot.hunt_disabled = False
+
+            special_gem_ids = {"079", "080", "081", "082", "083", "084", "085"}
+            if any(gem_id in special_gem_ids for gem_id in result):
+                self.recent_special_gem_usage = time.monotonic()
         else:
             if not full:
                 self.already_checked = True
             else:
                 await self.bot.log("Warn: No gems to use.", "#924444")
                 self.bot.user_status["no_gems"] = True
-                if (
-                    not self.bot.hunt_disabled
-                    and self.bot.settings_dict["autoUse"]["gems"][
-                        "disable_hunts_if_no_gems"
-                    ]
-                ):
+                if not self.bot.hunt_disabled and self.settings.disableHuntIfNoGems:
                     await self.bot.log(
                         "Disabling hunt since there is no gems to be used.", "#C51818"
                     )
@@ -209,25 +230,26 @@ class Gems(commands.Cog):
             "uncommon",
             "common",
         ]
-        cnf = self.bot.settings_dict["autoUse"]["gems"]
 
-        if cnf["order"]["lowestToHighest"]:
+        if self.settings.useLowest:
             tier_order.reverse()
 
         grouped_gem_list = []
 
         for tier in tier_order:
-            if not cnf["tiers"][tier]:
+            if not self.settings.tiers[tier]:
                 continue
 
             current_group = []
             for gem_id in gem_tiers[tier]:
                 gem_index = gem_tiers[tier].index(gem_id)
                 gem_type_key = gem_type[gem_index]
-                if (
-                    cnf["gemsToUse"].get(gem_type_key)
-                    and available_gems[tier].get(gem_id, 0) > 0
-                ):
+
+                if gem_type_key != "specialGem":
+                    should_use = self.settings.gemsToUse.get(gem_type_key)
+                else:
+                    should_use = self.should_use_special_gem()
+                if should_use and available_gems[tier].get(gem_id, 0) > 0:
                     current_group.append(gem_id)
 
             if current_group:
@@ -266,8 +288,8 @@ class Gems(commands.Cog):
 
     async def cog_load(self):
         if (
-            not self.bot.settings_dict["commands"]["hunt"]["enabled"]
-            or not self.bot.settings_dict["autoUse"]["gems"]["enabled"]
+            not self.bot.settings_dict.commands.hunt.enabled
+            or not self.settings.enabled
         ):
             try:
                 asyncio.create_task(self.bot.unload_cog("cogs.gems"))
@@ -325,7 +347,7 @@ class Gems(commands.Cog):
             if self.inventory_check:
                 await self.use_gems(self.available_gems, full=True)
                 await self.bot.sleep_till(
-                    self.bot.settings_dict["defaultCooldowns"]["briefCooldown"]
+                    self.bot.settings_dict.cooldowns.briefCooldown
                 )
                 self.inventory_check = False
                 self.cache_gems_in_use = {}
@@ -335,6 +357,16 @@ class Gems(commands.Cog):
 
             # Task 4: make commands trigger stat instead of manual to avoid such issues and also avoids permanent stop incase of fails
             await self.bot.set_stat(True)
+
+        elif "you already have an active Special gem" in message.content:
+            if self.is_special_gem_failure():
+                await self.bot.log(
+                    "Warn: Special Gem being disabled, seems like the event ended",
+                    "#924444",
+                )
+                self.bot.ongoing_owobot_event = False
+                # Reset rest of the states:
+                self.recent_special_gem_usage = 0
 
 
 async def setup(bot):

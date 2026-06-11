@@ -14,11 +14,12 @@ import asyncio
 
 from discord.ext import commands
 from utils.notification import notify
+from cogs._BASE import BaseCog
 
 
-class Battle(commands.Cog):
+class Battle(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.cmd = {
             "cmd_name": "",
             "prefix": True,
@@ -26,14 +27,18 @@ class Battle(commands.Cog):
             "id": "battle",
             "slash_cmd_name": "battle",
             "removed": False,
+            "channel": None,
+            "cmd_arguments": None,
         }
+
+    @property
+    def settings(self):
+        return self.bot.settings_dict.commands.battle
 
     async def cog_load(self):
         if (
-            not self.bot.settings_dict["commands"]["battle"]["enabled"]
-            or self.bot.settings_dict["defaultCooldowns"]["reactionBot"][
-                "hunt_and_battle"
-            ]
+            not self.settings.enabled
+            or self.bot.settings_dict.cooldowns.reactionBot.huntAndBattle
         ):
             try:
                 asyncio.create_task(self.bot.unload_cog("cogs.battle"))
@@ -42,7 +47,7 @@ class Battle(commands.Cog):
         else:
             self.cmd["cmd_name"] = (
                 self.bot.alias["battle"]["shortform"]
-                if self.bot.settings_dict["commands"]["battle"]["useShortForm"]
+                if self.settings.shortform
                 else self.bot.alias["battle"]["normal"]
             )
             asyncio.create_task(self.bot.put_queue(self.cmd))
@@ -65,16 +70,12 @@ class Battle(commands.Cog):
                             in embed.author.name
                         ):
                             if embed.footer:
-                                if self.bot.settings_dict["commands"]["battle"][
-                                    "showStreakInConsole"
-                                ]:
+                                if self.settings.show_streak:
                                     await self.bot.log(
                                         f"{embed.footer.text}", "#292252"
                                     )
                                 if "You lost in " in embed.footer.text:
-                                    if self.bot.settings_dict["commands"]["battle"][
-                                        "notifyStreakLoss"
-                                    ]:
+                                    if self.settings.notify_streak_loss:
                                         notify(
                                             embed.footer.text, "You lost your streak!"
                                         )
@@ -98,17 +99,55 @@ class Battle(commands.Cog):
                                     return
 
                             await self.bot.remove_queue(id="battle")
-                            await self.bot.sleep_till(
-                                self.bot.settings_dict["commands"]["battle"]["cooldown"]
-                            )
+                            await self.bot.sleep(self.settings.get_cd())
                             self.cmd["cmd_name"] = (
                                 self.bot.alias["battle"]["shortform"]
-                                if self.bot.settings_dict["commands"]["battle"][
-                                    "useShortForm"
-                                ]
+                                if self.settings.shortform
                                 else self.bot.alias["battle"]["normal"]
                             )
                             await self.bot.put_queue(self.cmd)
+
+            cnf = self.bot.quest_help_request["battle"]
+            if not cnf["enabled"]:
+                return
+
+            if f"<@{cnf['userid']}" == message.content:
+                emb = message.embeds[0] if message.embeds else None
+                if not emb:
+                    return
+                if (
+                    emb.author.name is not None
+                    and self.bot.user.display_name in emb.author.name
+                ):
+                    if (
+                        emb.footer.text.lower()
+                        == "this challenge will expire in 10 minutes"
+                    ):
+                        await self.bot.remove_queue(id="battle")
+                        self.bot.quest_help_request["battle"]["till"] -= 1
+                        (
+                            current,
+                            completed,
+                        ) = await self.bot.quest_handler.qh.update_progress(
+                            self.bot.user.id, cnf["userid"], "battle_friend"
+                        )
+                        if current is not None:
+                            await self.bot.quest_handler.sync_progress(
+                                "battle_friend", current, completed
+                            )
+
+                        if (
+                            completed
+                            or self.bot.quest_help_request["battle"]["till"] <= 0
+                        ):
+                            # reset
+                            self.bot.quest_help_request["battle"] = {
+                                "till": 0,
+                                "enabled": False,
+                                "userid": 0,
+                                "channel": 0,
+                            }
+
         except Exception as e:
             await self.bot.log(f"Error - {e}, During battle on_message()", "#c25560")
 

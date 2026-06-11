@@ -11,21 +11,45 @@
 # (at your option) any later version.
 
 import asyncio
+import itertools
 import time
 
 from discord.ext import commands, tasks
 from discord.ext.commands import ExtensionNotLoaded
+from cogs._BASE import BaseCog
 
 
-class Reactionbot(commands.Cog):
+class Reactionbot(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.cmd_states = {"hunt": 0, "battle": 0, "owo": 0, "pray": 0}
+        self.pray_channel = None
+        self.curse_channel = None
+        self.pray_counter = itertools.count(start=1)
+        self.curse_counter = itertools.count(start=1)
+
+    @property
+    def settings(self):
+        return self.bot.settings_dict.commands
+
+    @property
+    def reaction_bot_settings(self):
+        return self.bot.settings_dict.cooldowns.reactionBot
+
+    def pray_curse_channels(self):
+        channels = []
+        for cmd in ["pray", "curse"]:
+            cnf = self.fetch_settings(cmd)
+            if cnf:
+                channels.append(cnf.custom_channel if cnf.enabled else self.bot.cm.id)
+        return channels
+
+    def fetch_settings(self, cmd):
+        return getattr(self.bot.settings_dict.commands, cmd)
 
     def fetch_cmd(self, id):
-        commands_dict = self.bot.settings_dict["commands"]
-        hunt_shortform = commands_dict["hunt"]["useShortForm"]
-        battle_shortform = commands_dict["battle"]["useShortForm"]
+        hunt_shortform = self.settings.hunt.shortform
+        battle_shortform = self.settings.battle.shortform
 
         cmd_name = {
             "hunt": self.bot.alias["hunt"][
@@ -37,13 +61,21 @@ class Reactionbot(commands.Cog):
             "owo": self.bot.alias["owo"]["normal"],
         }
 
-        arg = ""
-        if id in {"pray", "curse"} and commands_dict[id]["userid"]:
-            user_id = self.bot.random.choice(commands_dict[id]["userid"])
-            if commands_dict[id]["pingUser"]:
-                arg = f"<@{user_id}>"
-            else:
-                arg = str(user_id)
+        if id in ("pray", "curse"):
+            arg = ""
+            settings = self.fetch_settings(id)
+            if settings.user_id:
+                user_id = self.bot.random.choice(settings.user_id)
+                if settings.ping_user:
+                    arg = f"<@{user_id}>"
+                else:
+                    arg = str(user_id)
+                if settings.count:
+                    arg += f" {next(self.__dict__[f'{id}_counter'])}"
+
+            channelId = None
+            if settings.custom_channel.enabled:
+                channelId = settings.custom_channel.channel
 
         base = {
             "cmd_name": cmd_name.get(id, id),
@@ -52,23 +84,22 @@ class Reactionbot(commands.Cog):
             "cmd_arguments": arg,
             "slash_cmd_name": id if id in {"hunt", "battle"} else None,
             "id": id if id != "curse" else "pray",
+            "channel": channelId,
         }
 
         return base
 
     def check_cmd_state(self, cmd, return_dict=False):
-        reaction_bot_dict = self.bot.settings_dict["defaultCooldowns"]["reactionBot"]
-        commands_dict = self.bot.settings_dict["commands"]
         enabled_dict = {
-            "hunt": commands_dict["hunt"]["enabled"]
-            and reaction_bot_dict["hunt_and_battle"],
-            "battle": commands_dict["battle"]["enabled"]
-            and reaction_bot_dict["hunt_and_battle"],
-            "owo": reaction_bot_dict["owo"] and commands_dict["owo"]["enabled"],
-            "pray": commands_dict["pray"]["enabled"]
-            and reaction_bot_dict["pray_and_curse"],
-            "curse": commands_dict["curse"]["enabled"]
-            and reaction_bot_dict["pray_and_curse"],
+            "hunt": self.settings.hunt.enabled
+            and self.reaction_bot_settings.huntAndBattle,
+            "battle": self.settings.battle.enabled
+            and self.reaction_bot_settings.huntAndBattle,
+            "owo": self.reaction_bot_settings.owo and self.settings.owo.enabled,
+            "pray": self.settings.pray.enabled
+            and self.reaction_bot_settings.prayAndCurse,
+            "curse": self.settings.curse.enabled
+            and self.reaction_bot_settings.prayAndCurse,
         }
 
         return enabled_dict.get(cmd) if not return_dict else enabled_dict
@@ -88,9 +119,8 @@ class Reactionbot(commands.Cog):
                 await self.send_cmd(cmd)
 
     async def send_cmd(self, cmd):
-        await self.bot.sleep_till(
-            self.bot.settings_dict["defaultCooldowns"]["reactionBot"]["cooldown"]
-        )
+        await self.bot.sleep(self.reaction_bot_settings.get_cd())
+
         await self.bot.put_queue(self.fetch_cmd(cmd), quick=True, priority=True)
         self.cmd_states[cmd if cmd != "curse" else "pray"] = time.time()
 
@@ -145,6 +175,9 @@ class Reactionbot(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        if message.author.id != self.bot.reaction_bot_id:
+            return
+
         hunt = self.check_cmd_state("hunt")
         battle = self.check_cmd_state("battle")
         pray = self.check_cmd_state("pray")
@@ -152,13 +185,10 @@ class Reactionbot(commands.Cog):
         owo = self.check_cmd_state("owo")
 
         if (
-            message.channel.id == self.bot.cm.id
-            and message.author.id == self.bot.reaction_bot_id
+            f"<@{self.bot.user.id}>" in message.content
+            or self.bot.user.name in message.content
         ):
-            if (
-                f"<@{self.bot.user.id}>" in message.content
-                or self.bot.user.name in message.content
-            ):
+            if message.channel.id == self.bot.cm.id:
                 if "**OwO**" in message.content and owo:
                     await self.send_cmd("owo")
 
@@ -170,7 +200,9 @@ class Reactionbot(commands.Cog):
                         cmd = "hunt" if hunt else "battle"
                         await self.send_cmd(cmd)
 
-                elif "**pray/curse**" in message.content and (pray or curse):
+            if message.channel.id in self.pray_curse_channels():
+                # check, incomplete!
+                if "**pray/curse**" in message.content and (pray or curse):
                     cmds = []
                     if pray:
                         cmds.append("pray")

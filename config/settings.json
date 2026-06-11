@@ -1,6 +1,9 @@
 {
     "setprefix": "owo ",
     "useSlashCommands": false,
+    "claimMail": false,
+    "autoDaily": true,
+    "cashCheck": true,
     "commands": {
         "hunt": {
             "enabled": true,
@@ -20,38 +23,6 @@
             "showStreakInConsole": false,
             "notifyStreakLoss": false
         },
-        "sell": {
-            "enabled": false,
-            "cooldown": [
-                410,
-                500
-            ],
-            "rarity": [
-                "c",
-                "u",
-                "r",
-                "e",
-                "m",
-                "l",
-                "g"
-            ]
-        },
-        "sac": {
-            "enabled": false,
-            "cooldown": [
-                410,
-                500
-            ],
-            "rarity": [
-                "c",
-                "u",
-                "r",
-                "e",
-                "m",
-                "l",
-                "g"
-            ]
-        },
         "pray": {
             "enabled": false,
             "cooldown": [
@@ -63,7 +34,8 @@
             "customChannel": {
                 "enabled": false,
                 "channelId": 0
-            }
+            },
+            "count": false
         },
         "curse": {
             "enabled": false,
@@ -76,7 +48,8 @@
             "customChannel": {
                 "enabled": false,
                 "channelId": 0
-            }
+            },
+            "count": false
         },
         "lottery": {
             "enabled": false,
@@ -94,28 +67,35 @@
         },
         "cookie": {
             "enabled": false,
-            "userid": 408785106942164992,
+            "userid": "408785106942164992",
             "pingUser": false
         },
         "shop": {
             "enabled": false,
-            "itemsToBuy": [
-                1
-            ],
+            "itemsToBuy": {
+                "commonRing": true,
+                "uncommonRing": false,
+                "rareRing": false,
+                "epicRing": false,
+                "mythicalRing": false,
+                "legendaryRing": false,
+                "fabledRing": false
+            },
             "cooldown": [
                 10,
                 16
             ]
         },
         "owo": {
-            "enabled": false,
+            "enabled": true,
+            "prioritise": false,
             "cooldown": [
                 10,
                 13
             ]
         },
         "autoHuntBot": {
-            "enabled": true,
+            "enabled": false,
             "cashToSpend": 10000,
             "upgrader": {
                 "enabled": true,
@@ -131,7 +111,7 @@
                     10,
                     15
                 ],
-                "priorities": {
+                "weights": {
                     "efficiency": 4,
                     "duration": 2,
                     "cost": 5,
@@ -140,13 +120,69 @@
                     "radar": 1
                 }
             }
+        },
+        "pup": {
+            "enabled": false,
+            "cooldown": [
+                60,
+                70
+            ]
+        },
+        "piku": {
+            "enabled": false,
+            "cooldown": [
+                60,
+                70
+            ]
+        },
+        "army": {
+            "enabled": false,
+            "cooldown": [
+                61,
+                70
+            ]
         }
     },
-    "gamble": {
-        "allottedAmount": 30000,
-        "goalSystem": {
+    "animal": {
+        "sell": {
             "enabled": false,
-            "amount": 300
+            "rarity": {
+                "common": true,
+                "uncommon": true,
+                "rare": true,
+                "epic": true,
+                "special": false,
+                "mythical": false,
+                "gem": false,
+                "legendary": false,
+                "fabled": false,
+                "hidden": false,
+                "distorted": false
+            }
+        },
+        "sac": {
+            "enabled": false,
+            "rarity": {
+                "common": true,
+                "uncommon": true,
+                "rare": true,
+                "epic": true,
+                "special": false,
+                "mythical": false,
+                "gem": false,
+                "legendary": false,
+                "fabled": false,
+                "hidden": false,
+                "distorted": false
+            }
+        },
+        "cooldown":[30,40]
+    },
+    "gamble": {
+        "allottedAmount": 10000,
+        "goalSystem": {
+            "enabled": true,
+            "amount": 30000
         },
         "coinflip": {
             "enabled": false,
@@ -156,9 +192,10 @@
                 16,
                 18
             ],
-            "options": [
-                "t"
-            ]
+            "options": {
+                "heads": true,
+                "tails": false
+            }
         },
         "slots": {
             "enabled": false,
@@ -182,17 +219,18 @@
     "bossBattle": {
         "enabled": false,
         "joinChancePercent": 80,
-        "joinAllGuilds": {
-            "enabled": true,
-            "guildIdsToIgnore": []
+        "joinAllGuilds": true,
+        "guildJoinRules": {
+            "ignoreGuildIds": [],
+            "onlyJoinGuildIds": []
         }
     },
     "giveawayJoiner": {
         "enabled": false,
         "channelsToJoin": [
-            1099453684691243098,
-            1168797748343099444,
-            1168797827464429618
+            "1099453684691243098",
+            "1168797748343099444",
+            "1168797827464429618"
         ],
         "cooldown": [
             40,
@@ -207,7 +245,7 @@
             10,
             20
         ],
-        "sleeptime": [
+        "sleepTime": [
             1,
             10
         ]
@@ -224,8 +262,6 @@
             0.09
         ]
     },
-    "autoDaily": true,
-    "cashCheck": true,
     "defaultCooldowns": {
         "longCooldown": [
             400,
@@ -255,16 +291,25 @@
             "beforeReaddingToQueue": 7
         },
         "reactionBot": {
-            "hunt_and_battle": false,
+            "huntAndBattle": false,
             "owo": false,
-            "pray_and_curse": false,
+            "prayAndCurse": false,
             "cooldown": [
                 0.5,
                 1
             ]
         }
     },
-    
+    "autoQuest": {
+        "enabled": false,
+        "helpChannel": {
+            "postInHelpChannel": false,
+            "channelId": 1513350205263839307
+        },
+        "enableCommandsToCompleteQuest": true,
+        "helpOthers": true,
+        "checkCooldown": [10, 30]
+    },
     "autoUse": {
         "gems": {
             "enabled": true,
@@ -276,7 +321,7 @@
                 "uncommon": true,
                 "rare": true,
                 "epic": true,
-                "mythical": true,
+                "mythical": false,
                 "legendary": false,
                 "fabled": false
             },
@@ -284,9 +329,10 @@
                 "huntGem": true,
                 "empoweredGem": true,
                 "luckyGem": true,
-                "specialGem": false
+                "specialGem": true
             },
-            "disable_hunts_if_no_gems": false
+            "dynamicSpecialGemUsage": true,
+            "disableHuntIfNoGems": false
         },
         "autoLootbox": true,
         "autoCrate": true

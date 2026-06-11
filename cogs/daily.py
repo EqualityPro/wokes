@@ -17,10 +17,11 @@ import re
 
 from discord.ext import commands
 from discord.ext.commands import ExtensionNotLoaded
+from cogs._BASE import BaseCog
 
 
 def load_json_dict(file_path="utils/stats.json"):
-    with open(file_path, "r") as config_file:
+    with open(file_path, "r", encoding="utf-8") as config_file:
         return json.load(config_file)
 
 
@@ -37,9 +38,13 @@ def load_dict():
 load_dict()
 
 
-class Daily(commands.Cog):
+class Daily(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
+
+    @property
+    def cooldowns(self):
+        return self.bot.settings_dict.cooldowns
 
     async def start_daily(self):
         if str(self.bot.user.id) in accounts_dict:
@@ -52,9 +57,7 @@ class Daily(commands.Cog):
                     self.bot.calc_time()
                 )  # Wait until next 12:00 AM PST
 
-            await self.bot.sleep_till(
-                self.bot.settings_dict["defaultCooldowns"]["briefCooldown"]
-            )
+            await self.bot.sleep_till(self.cooldowns.briefCooldown)
             await self.bot.put_queue(cmd, priority=True)
             await self.bot.set_stat(False)
 
@@ -63,11 +66,11 @@ class Daily(commands.Cog):
                 accounts_dict[str(self.bot.user.id)]["daily"] = (
                     self.bot.time_in_seconds()
                 )
-                with open("utils/stats.json", "w") as f:
+                with open("utils/stats.json", "w", encoding="utf-8") as f:
                     json.dump(accounts_dict, f, indent=4)
 
     async def cog_load(self):
-        if not self.bot.settings_dict["autoDaily"]:
+        if not self.bot.settings_dict.daily:
             try:
                 asyncio.create_task(self.bot.unload_cog("cogs.daily"))
             except ExtensionNotLoaded:
@@ -104,9 +107,7 @@ class Daily(commands.Cog):
                     )
                 )
 
-                await self.bot.sleep_till(
-                    self.bot.settings_dict["defaultCooldowns"]["moderateCooldown"]
-                )
+                await self.bot.sleep_till(self.cooldowns.moderateCooldown)
                 await self.bot.put_queue(cmd, priority=True)
                 await self.bot.set_stat(False)
                 with lock:
@@ -114,17 +115,11 @@ class Daily(commands.Cog):
                     accounts_dict[str(self.bot.user.id)]["daily"] = (
                         self.bot.time_in_seconds()
                     )
-                    with open("utils/stats.json", "w") as f:
+                    with open("utils/stats.json", "w", encoding="utf-8") as f:
                         json.dump(accounts_dict, f, indent=4)
 
-                if self.bot.global_settings_dict["webhook"]["enabled"]:
-                    await self.bot.webhookSender(
-                        title="Claimed daily",
-                        desc=f"**User** <@{self.bot.user.id}> claimed today's daily.",
-                        colors="#4B6EA3",
-                        img_url="https://cdn.discordapp.com/emojis/1346253360151400542.gif",
-                        author_img_url="https://i.imgur.com/6zeCgXo.png",
-                    )
+                if self.bot.global_settings_dict.webhook.enabled:
+                    await self.bot.send_webhook("daily_claim")
 
             if (
                 "**⏱ |** Nu! **" in message.content
@@ -133,9 +128,7 @@ class Daily(commands.Cog):
                 await self.bot.remove_queue(cmd)
                 await self.bot.set_stat(True)
                 await asyncio.sleep(self.bot.calc_time())
-                await self.bot.sleep_till(
-                    self.bot.settings_dict["defaultCooldowns"]["moderateCooldown"]
-                )
+                await self.bot.sleep_till(self.cooldowns.moderateCooldown)
                 await self.bot.put_queue(cmd, priority=True)
                 await self.bot.set_stat(False)
                 with lock:
@@ -143,7 +136,7 @@ class Daily(commands.Cog):
                     accounts_dict[str(self.bot.user.id)]["daily"] = (
                         self.bot.time_in_seconds()
                     )
-                    with open("utils/stats.json", "w") as f:
+                    with open("utils/stats.json", "w", encoding="utf-8") as f:
                         json.dump(accounts_dict, f, indent=4)
 
 

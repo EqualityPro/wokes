@@ -1,11 +1,12 @@
 <div align="center">
-  <center><img src="static/imgs/logo.png" width="150"></center>
+  <center><img src="website/static/imgs/logo.png" width="150"></center>
   <br>
   <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.herokuapp.com?font=Pacifico&size=40&pause=1000&color=802DF7&center=true&vCenter=true&random=false&width=425&lines=Owo+Dusk" alt="Typing SVG" />
   <br/>
   <a href="https://discord.gg/hDDrKhWPqr"><img src="https://invidget.switchblade.xyz/hDDrKhWPqr" alt="Discord Invite"/> </a>
   <br/>
-  <small><p>join our discord! (Join with an alt please, one that hasn't and won't use owobot!)<br>
+  <small><p>join our discord! (Join with a second account please, one that hasn't and won't use owobot!)<br>
+  <small><p>If you join with an account that plays owobot, you WILL get banned from using owo bot!)<br>
   Alternatively, send a friend request to `@echoquill` on discord for help!</p></small>
 </div>
 
@@ -21,41 +22,37 @@ Best selfbot for owobot currently with alot of cool features like Boss battles, 
 ---
 # Basic installation
 ---
-* Computer
+* Windows
   ```
-  git clone https://github.com/echoquill/owo-dusk.git
-  cd owo-dusk
-  python setup.py
-  python uwu.py
+    curl -o "%TEMP%\install.bat" https://raw.githubusercontent.com/echoquill/owo-dusk/main/install.bat && "%TEMP%\install.bat"
   ```
-  > Run in order
-  > Make sure git and python is installed and that terminal is open in `Desktop` for easier access (you can simply run `cd %USERPROFILE%\Desktop` if your on windows, command prompt)
   
-* Termux
+* Termux/Linux/MacOS
   ```
-  pkg update && pkg upgrade -y && termux-setup-storage && pkg install python -y && pkg install git -y && pkg install termux-api -y && cd storage/downloads && git clone https://github.com/echoquill/owo-dusk.git && cd owo-dusk && python setup.py && python uwu.py
+    bash <(curl -s https://raw.githubusercontent.com/echoquill/owo-dusk/main/install.sh)
   ```
+  **For Termux:**
   > Make sure to install termux and termux:api (give this `notifications` permission) app from fdroid or github.
   > after the above is done, do the steps setup.py asks you to.
-  > 
-  > simpily run `cd storage/downloads/owo-dusk && python uwu.py` next time to re-run code
-  
+  > If you have issues with Basic installation, try doing Manual installation
+
+  **For Linux**
+  > In some Linux devices, pip may be restricted. In such cases run installer after creating a venv
   
 
 > [!TIP]
-> For help with setup, please join our discord server(or send `echoquill` a friend request) and I'll help you set it up on both termux(android) and desktop/laptop devices. Ill make tutorials for it laters!
-
+> If you have any issues with setup, please join our discord server(or send `echoquill` a friend request) and I'll help you set it up on both termux(android) and desktop/laptop devices. Ill make tutorials for it later!
 
 ---
 # Screenshots 📸 
 ---
 
 <div align="center">
-  <center><img src="static/imgs/desktop_cli.png" width="800" height="500"></center>
+  <center><img src="website/static/imgs/desktop_cli.png" width="800" height="500"></center>
   <br>
   <p>Desktop CLI screenshot</p>
   <br>
-  <center><img src="static/imgs/website.png" width="1200" height=600"></center>
+  <center><img src="website/static/imgs/website.png" width="1200" height=600"></center>
   <br>
   <p>Website dashboard</p>
 </div>
@@ -71,10 +68,10 @@ Best selfbot for owobot currently with alot of cool features like Boss battles, 
 ---
 # Credits
 ---
-* https://github.com/BridgeSenseDev/Dank-Memer-Grinder
+* https://github.com/autocord-org/dmg
 > inspired cogs part and code structure. I also learned Python from this project :>.
-* https://github.com/TahaGorme/slashy
-> inspired website dashboard. Alot of js code was stolen from slashy; before 2.1.0^ script.js was an entire copy of slashy's (with permission ofc).
+* https://github.com/scriptlabs-cc/slashy
+> inspired website dashboard. A lot of js code was stolen from slashy; before 2.1.0^ script.js was an entire copy of slashy's (with permission ofc).
  
 
 ---

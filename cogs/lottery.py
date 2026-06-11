@@ -16,10 +16,11 @@ import threading
 
 from discord.ext import commands
 from discord.ext.commands import ExtensionNotLoaded
+from cogs._BASE import BaseCog
 
 
 def load_json_dict(file_path="utils/stats.json"):
-    with open(file_path, "r") as config_file:
+    with open(file_path, "r", encoding="utf-8") as config_file:
         return json.load(config_file)
 
 
@@ -34,17 +35,30 @@ def load_dict():
 load_dict()
 
 
-class Lottery(commands.Cog):
+class Lottery(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
 
-        self.cmd = {
+        self._cmd = {
             "cmd_name": self.bot.alias["lottery"]["normal"],
-            "cmd_arguments": self.bot.settings_dict["commands"]["lottery"]["amount"],
+            "cmd_arguments": 0,
             "prefix": True,
             "checks": True,
             "id": "lottery",
         }
+
+    @property
+    def cooldown(self):
+        return self.bot.settings_dict.cooldowns
+
+    @property
+    def settings(self):
+        return self.bot.settings_dict.commands.lottery
+
+    @property
+    def cmd(self):
+        self._cmd["cmd_argument"] = self.settings.amount
+        return self._cmd
 
     async def start_lottery(self):
         if str(self.bot.user.id) in accounts_dict:
@@ -55,9 +69,7 @@ class Lottery(commands.Cog):
                     self.bot.calc_time()
                 )  # Wait until next 12:00 AM PST
 
-            await self.bot.sleep_till(
-                self.bot.settings_dict["defaultCooldowns"]["shortCooldown"]
-            )
+            await self.bot.sleep_till(self.cooldown.shortCooldown)
             await self.bot.put_queue(self.cmd)
 
             with lock:
@@ -65,11 +77,11 @@ class Lottery(commands.Cog):
                 accounts_dict[str(self.bot.user.id)]["lottery"] = (
                     self.bot.time_in_seconds()
                 )
-                with open("utils/stats.json", "w") as f:
+                with open("utils/stats.json", "w", encoding="utf-8") as f:
                     json.dump(accounts_dict, f, indent=4)
 
     async def cog_load(self):
-        if not self.bot.settings_dict["commands"]["lottery"]["enabled"]:
+        if not self.bot.settings.enabled:
             try:
                 asyncio.create_task(self.bot.unload_cog("cogs.lottery"))
             except ExtensionNotLoaded:
@@ -95,33 +107,27 @@ class Lottery(commands.Cog):
                     ):
                         await self.bot.remove_queue(id="lottery")
                         await asyncio.sleep(self.bot.calc_time())
-                        await self.bot.sleep_till(
-                            self.bot.settings_dict["defaultCooldowns"][
-                                "moderateCooldown"
-                            ]
-                        )
+                        await self.bot.sleep_till(self.cooldown.moderateCooldown)
                         await self.bot.put_queue(self.cmd)
                         with lock:
                             load_dict()
                             accounts_dict[str(self.bot.user.id)]["lottery"] = (
                                 self.bot.time_in_seconds()
                             )
-                            with open("utils/stats.json", "w") as f:
+                            with open("utils/stats.json", "w", encoding="utf-8") as f:
                                 json.dump(accounts_dict, f, indent=4)
 
             if "You can only bet up to 250,000 cowoncy!" in message.content:
                 await self.bot.remove_queue(id="lottery")
                 await asyncio.sleep(self.bot.calc_time())
-                await self.bot.sleep_till(
-                    self.bot.settings_dict["defaultCooldowns"]["moderateCooldown"]
-                )
+                await self.bot.sleep_till(self.cooldown.moderateCooldown)
                 await self.bot.put_queue(self.cmd)
                 with lock:
                     load_dict()
                     accounts_dict[str(self.bot.user.id)]["lottery"] = (
                         self.bot.time_in_seconds()
                     )
-                    with open("utils/stats.json", "w") as f:
+                    with open("utils/stats.json", "w", encoding="utf-8") as f:
                         json.dump(accounts_dict, f, indent=4)
 
 

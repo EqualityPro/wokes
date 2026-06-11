@@ -16,10 +16,11 @@ import threading
 
 from discord.ext import commands
 from discord.ext.commands import ExtensionNotLoaded
+from cogs._BASE import BaseCog
 
 
 def load_json_dict(file_path="utils/stats.json"):
-    with open(file_path, "r") as config_file:
+    with open(file_path, "r", encoding="utf-8") as config_file:
         return json.load(config_file)
 
 
@@ -34,9 +35,9 @@ def load_dict():
 load_dict()
 
 
-class Cookie(commands.Cog):
+class Cookie(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.cmd = {
             "cmd_name": self.bot.alias["cookie"]["normal"],
             "cmd_arguments": "",
@@ -45,7 +46,13 @@ class Cookie(commands.Cog):
             "id": "cookie",
         }
 
-    """change to conver times"""
+    @property
+    def cooldowns(self):
+        return self.bot.settings_dict.cooldowns
+
+    @property
+    def settings(self):
+        return self.bot.settings_dict.commands.cookie
 
     async def start_cookie(self):
         if str(self.bot.user.id) in accounts_dict:
@@ -56,12 +63,11 @@ class Cookie(commands.Cog):
                     self.bot.calc_time()
                 )  # Wait until next 12:00 AM PST
 
-            await self.bot.sleep_till(
-                self.bot.settings_dict["defaultCooldowns"]["briefCooldown"]
-            )
-            cnf = self.bot.settings_dict["commands"]["cookie"]
+            await self.bot.sleep_till(self.cooldowns.moderateCooldown)
             self.cmd["cmd_arguments"] = (
-                f"<@{cnf['userid']}>" if cnf["pingUser"] else f"{cnf['userid']}"
+                f"<@{self.settings.user_id}>"
+                if self.settings.ping_user
+                else f"{self.settings.user_id}"
             )
             await self.bot.put_queue(self.cmd, priority=True)
             with lock:
@@ -69,11 +75,11 @@ class Cookie(commands.Cog):
                 accounts_dict[str(self.bot.user.id)]["cookie"] = (
                     self.bot.time_in_seconds()
                 )
-                with open("utils/stats.json", "w") as f:
+                with open("utils/stats.json", "w", encoding="utf-8") as f:
                     json.dump(accounts_dict, f, indent=4)
 
     async def cog_load(self):
-        if not self.bot.settings_dict["commands"]["cookie"]["enabled"]:
+        if not self.settings.enabled:
             try:
                 asyncio.create_task(self.bot.unload_cog("cogs.cookie"))
             except ExtensionNotLoaded:
@@ -103,16 +109,14 @@ class Cookie(commands.Cog):
                     await self.bot.remove_queue(id="cookie")
 
                     await asyncio.sleep(self.bot.calc_time())
-                    await self.bot.sleep_till(
-                        self.bot.settings_dict["defaultCooldowns"]["moderateCooldown"]
-                    )
+                    await self.bot.sleep_till(self.cooldowns.moderateCooldown)
                     await self.bot.put_queue(self.cmd, priority=True)
                     with lock:
                         load_dict()
                         accounts_dict[str(self.bot.user.id)]["cookie"] = (
                             self.bot.time_in_seconds()
                         )
-                        with open("utils/stats.json", "w") as f:
+                        with open("utils/stats.json", "w", encoding="utf-8") as f:
                             json.dump(accounts_dict, f, indent=4)
 
 

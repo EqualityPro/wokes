@@ -16,6 +16,7 @@ import re
 
 from discord.ext import commands
 from discord.ext.commands import ExtensionNotLoaded
+from cogs._BASE import BaseCog
 
 
 try:
@@ -48,9 +49,9 @@ def get_emoji_values(text):
     return total_sell_price
 
 
-class Hunt(commands.Cog):
+class Hunt(BaseCog):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.cmd = {
             "cmd_name": "",
             "prefix": True,
@@ -60,6 +61,17 @@ class Hunt(commands.Cog):
             "removed": False,
         }
         self.was_recently_disabled = False
+
+    @property
+    def settings(self):
+        return self.bot.settings_dict.commands.hunt
+
+    @property
+    def webhook_settings(self):
+        return self.bot.global_settings_dict.webhook
+
+    def should_log_emoji(self, emoji_rank):
+        return getattr(self.webhook_settings.animalLog.rank, emoji_rank, False)
 
     def get_emoji_tier(self, text, emoji_dict=emoji_dict):
         # https://emojiapi.dev/api/v1/lady_beetle/100.png
@@ -80,6 +92,7 @@ class Hunt(commands.Cog):
             "legendary": (7, "<a:legendary:417955061801680909>"),
             "fabled": (8, "<a:fabled:438857004493307907>"),
             "hidden": (9, "<a:hidden:459203677438083074>"),
+            "distorted": (10, "<a:distorted:728812986147274835>"),
         }
         highest_rank = {"rarity": "", "emoji": ""}
 
@@ -87,9 +100,7 @@ class Hunt(commands.Cog):
             emoji_data = emoji_dict.get(emoji)
 
             if emoji_data:
-                if self.bot.global_settings_dict["webhook"]["animal_log"]["rank"][
-                    emoji_data["rank"]
-                ]:
+                if self.should_log_emoji(emoji_data["rank"]):
                     if emoji.startswith("<a:"):
                         emoji_id = emoji[3:-1]
                         url = f"https://cdn.discordapp.com/emojis/{emoji_id}.gif"
@@ -97,7 +108,7 @@ class Hunt(commands.Cog):
                         emoji_id = emoji[1:-1]
                         if "2" in emoji_id:
                             # quick work-around to discord adding 2 at end of emoji names
-                            # I guess this should fix invalid id error for all required emojies
+                            # I guess this should fix invalid id error for all required emojis
                             emoji_id = emoji_id[:-1]
                         url = f"https://emojiapi.dev/api/v1/{emoji_id}/100.png"
 
@@ -120,10 +131,8 @@ class Hunt(commands.Cog):
 
     async def cog_load(self):
         if (
-            not self.bot.settings_dict["commands"]["hunt"]["enabled"]
-            or self.bot.settings_dict["defaultCooldowns"]["reactionBot"][
-                "hunt_and_battle"
-            ]
+            not self.settings.enabled
+            or self.bot.settings_dict.cooldowns.reactionBot.huntAndBattle
         ):
             try:
                 asyncio.create_task(self.bot.unload_cog("cogs.hunt"))
@@ -132,7 +141,7 @@ class Hunt(commands.Cog):
         else:
             self.cmd["cmd_name"] = (
                 self.bot.alias["hunt"]["shortform"]
-                if self.bot.settings_dict["commands"]["hunt"]["useShortForm"]
+                if self.settings.shortform
                 else self.bot.alias["hunt"]["normal"]
             )
             asyncio.create_task(self.bot.put_queue(self.cmd))
@@ -156,7 +165,7 @@ class Hunt(commands.Cog):
             self.was_recently_disabled = False
             self.cmd["cmd_name"] = (
                 self.bot.alias["hunt"]["shortform"]
-                if self.bot.settings_dict["commands"]["hunt"]["useShortForm"]
+                if self.settings.shortform
                 else self.bot.alias["hunt"]["normal"]
             )
             await self.bot.put_queue(self.cmd)
@@ -179,45 +188,51 @@ class Hunt(commands.Cog):
                 )
 
                 sell_value = get_emoji_values(msg_line)
-                # Wait why are reducing 5 again when we are alrady reducing that from sell val? checkk
+                # Wait why are reducing 5 again when we are already reducing that from sell val? check
                 self.bot.update_cash(sell_value - 5, assumed=True)
                 self.bot.update_cash(5, reduce=True)
 
-                if (
-                    self.bot.global_settings_dict["webhook"]["enabled"]
-                    and self.bot.global_settings_dict["webhook"]["animal_log"][
-                        "enabled"
-                    ]
-                ):
-                    result_list, highest_rank = self.get_emoji_tier(msg_line)
-                    if result_list:
+                # Get Tiers
+                result_list, highest_rank = self.get_emoji_tier(msg_line)
+                if result_list:
+                    # Handle webhook
+                    if (
+                        self.webhook_settings.enabled
+                        and self.webhook_settings.animalLog.enabled
+                    ):
                         if len(result_list) > 1:
-                            description = f"User: <@{self.bot.user.id}> caught the following pets:\n> "
+                            hunt_caught_emojis = ""
                             for item in result_list:
-                                description += f"{item['emoji']} "
-                            # Multiple items, compact mode.
-                            description += f"\n-# Best catch: {highest_rank['emoji']} {highest_rank['rarity']}"
-                            await self.bot.webhookSender(
-                                title="Caught multiple animals from hunt!",
-                                desc=description,
-                                colors="#5B0B74",
-                                author_name="Hunt",
-                                author_img_url="https://cdn.discordapp.com/emojis/633448858432831488.gif",
+                                hunt_caught_emojis += f"{item['emoji']} "
+                            best_catch = highest_rank["emoji"]
+                            best_rank = highest_rank["rarity"]
+
+                            await self.bot.send_webhook(
+                                "on_multiple_hunt_catch",
+                                hunt_caught_emojis=hunt_caught_emojis,
+                                best_catch=best_catch,
+                                best_rank=best_rank,
                             )
                         else:
-                            await self.bot.webhookSender(
-                                title=f"Caught {highest_rank['emoji']} {result_list[0]['emoji']} from hunt!",
-                                desc=f"> User: <@{self.bot.user.id}> caught a(an) {result_list[0]['rank']} {result_list[0]['emoji']}.",
-                                colors="#5B0B74",
-                                img_url=result_list[0]["emoji_url"],
+                            best_catch = highest_rank["emoji"]
+                            best_rank = highest_rank["rarity"]
+                            animal_image_url = result_list[0]["emoji_url"]
+                            await self.bot.send_webhook(
+                                "on_hunt_catch",
+                                hunt_caught_emojis=hunt_caught_emojis,
+                                best_catch=best_catch,
+                                best_rank=best_rank,
+                                animal_image_url=animal_image_url,
                             )
+                    # Handle updation of rank held (sell/sac)
+                    for result in result_list:
+                        # Should be okay... hopefully
+                        self.bot.animal_rank_in_zoo[result["rank"]] = True
 
-                await self.bot.sleep_till(
-                    self.bot.settings_dict["commands"]["hunt"]["cooldown"]
-                )
+                await self.bot.sleep(self.settings.get_cd())
                 self.cmd["cmd_name"] = (
                     self.bot.alias["hunt"]["shortform"]
-                    if self.bot.settings_dict["commands"]["hunt"]["useShortForm"]
+                    if self.settings.shortform
                     else self.bot.alias["hunt"]["normal"]
                 )
                 await self.bot.put_queue(self.cmd)
