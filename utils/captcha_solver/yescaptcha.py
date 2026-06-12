@@ -63,7 +63,8 @@ class captchaClient:
             return 0
 
     async def update_balance(self):
-        self.balance = await self.get_yescaptcha_balance()
+        async with aiohttp.ClientSession() as session:
+            self.balance = await self.get_yescaptcha_balance(session)
 
     async def solve_hcaptcha_logic(self, retries=3):
         """
