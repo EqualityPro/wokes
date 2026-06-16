@@ -1,5 +1,9 @@
+# Plain `uvicorn` (NOT uvicorn[standard]) on purpose:
+# the [standard] extra pulls in watchfiles/uvloop/httptools which need a
+# C/Rust toolchain to compile and fail on platforms like Termux/Android.
+# We don't use --reload, so the plain server is all we need.
 fastapi
-uvicorn[standard]
+uvicorn
 jinja2
 python-multipart
 itsdangerous
