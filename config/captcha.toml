@@ -48,7 +48,7 @@ enabled = true # Change this to true to enable
 
 # Enter your API key from https://yescaptcha.com/i/MNaKrh
 # Leave empty if not using hCaptcha solver
-api_key = "d90c7489a743f9ae88fdb6d246db96aa1346a796125539"
+api_key = ""
 
 # How may times to retry incase of failures.
 # Recommended -> 3
