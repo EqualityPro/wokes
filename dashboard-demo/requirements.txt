@@ -1,9 +1,4 @@
-# Plain `uvicorn` (NOT uvicorn[standard]) on purpose:
-# the [standard] extra pulls in watchfiles/uvloop/httptools which need a
-# C/Rust toolchain to compile and fail on platforms like Termux/Android.
-# We don't use --reload, so the plain server is all we need.
-fastapi
-uvicorn
-jinja2
-python-multipart
-itsdangerous
+# Flask + its deps are all PURE PYTHON (no Rust, no C compiler needed),
+# so this installs instantly on Termux/Android and locked hosts.
+# (FastAPI was dropped because pydantic-core needs Rust, which fails on Termux.)
+flask
