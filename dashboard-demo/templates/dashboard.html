@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="muted">Signed in as <strong>{{ email }}</strong></p>
+    </div>
+    <a class="btn-secondary" href="/logout">Log out</a>
+</header>
+
+{% if saved == "features" %}<p class="ok">Features saved.</p>{% endif %}
+{% if saved == "settings" %}<p class="ok">Settings saved.</p>{% endif %}
+
+<div class="grid">
+    <!-- Feature toggles: each user turns their own features on/off -->
+    <section class="card">
+        <h2>Features</h2>
+        <p class="muted">Toggle the features you want enabled for your account.</p>
+        <form method="post" action="/dashboard/features">
+            {% for name, enabled in features.items() %}
+            <label class="toggle">
+                <input type="checkbox" name="{{ name }}" {% if enabled %}checked{% endif %}>
+                <span>{{ name.replace('_', ' ') | title }}</span>
+            </label>
+            {% endfor %}
+            <button type="submit">Save features</button>
+        </form>
+    </section>
+
+    <!-- Settings: each user stores their own key-value config -->
+    <section class="card">
+        <h2>Settings</h2>
+        <p class="muted">Your personal configuration.</p>
+        <form method="post" action="/dashboard/settings">
+            <label>Display name
+                <input type="text" name="display_name" value="{{ settings.display_name }}">
+            </label>
+            <label>Timezone
+                <input type="text" name="timezone" value="{{ settings.timezone }}">
+            </label>
+            <label>Items per page
+                <input type="number" name="items_per_page" min="1" max="200"
+                       value="{{ settings.items_per_page }}">
+            </label>
+            <button type="submit">Save settings</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+:root {
+    --bg: #0f1419;
+    --card: #1a212b;
+    --border: #2a3441;
+    --text: #e6edf3;
+    --muted: #8b97a6;
+    --accent: #4f8cff;
+    --ok: #3fb950;
+    --error: #f85149;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+h1 { margin: 0 0 .25rem; }
+h2 { margin: 0 0 .5rem; font-size: 1.15rem; }
+
+.muted { color: var(--muted); font-size: .9rem; }
+.hint { color: var(--muted); font-weight: normal; font-size: .8rem; }
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.auth-card {
+    max-width: 380px;
+    margin: 4rem auto 0;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+@media (max-width: 680px) {
+    .grid { grid-template-columns: 1fr; }
+}
+
+label {
+    display: block;
+    margin: .85rem 0;
+    font-size: .9rem;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    margin-top: .35rem;
+    padding: .6rem .7rem;
+    background: #0f1419;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: .95rem;
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin: .6rem 0;
+}
+
+.toggle input { width: auto; margin: 0; }
+
+button {
+    margin-top: 1rem;
+    width: 100%;
+    padding: .65rem 1rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover { filter: brightness(1.08); }
+
+.btn-secondary {
+    padding: .5rem .9rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: .9rem;
+}
+
+a { color: var(--accent); }
+
+.error {
+    background: rgba(248, 81, 73, .12);
+    border: 1px solid var(--error);
+    color: var(--error);
+    padding: .6rem .8rem;
+    border-radius: 8px;
+    font-size: .9rem;
+}
+
+.ok {
+    background: rgba(63, 185, 80, .12);
+    border: 1px solid var(--ok);
+    color: var(--ok);
+    padding: .6rem .8rem;
+    border-radius: 8px;
+    font-size: .9rem;
+}
