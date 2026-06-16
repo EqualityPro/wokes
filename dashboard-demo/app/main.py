@@ -1,195 +1,165 @@
 """
-FastAPI app: a generic multi-tenant dashboard.
+Flask app: a generic multi-tenant dashboard.
+
+Why Flask (not FastAPI) here?
+- Flask and all its dependencies are PURE PYTHON. No Rust, no C compiler.
+  That means it installs instantly even on Termux/Android or locked hosts,
+  unlike FastAPI which needs to compile pydantic-core (Rust).
+
+The interesting logic lives in db.py (tenant isolation) and auth.py (password
+hashing). This file is just the thin HTTP layer wiring them to web routes.
 
 Routes
 ------
-GET  /                 -> redirect to /dashboard (or /login if not logged in)
-GET  /register         -> registration form
-POST /register         -> create account, log in, redirect to dashboard
-GET  /login            -> login form
-POST /login            -> verify credentials, start session
-GET  /logout           -> clear session
-GET  /dashboard        -> show THIS user's feature toggles + settings
-POST /dashboard/features -> flip a feature flag for THIS user
-POST /dashboard/settings -> save settings for THIS user
+GET  /                    -> redirect to /dashboard (or /login if not logged in)
+GET/POST /register        -> create account, log in
+GET/POST /login           -> verify credentials, start session
+GET  /logout              -> clear session
+GET  /dashboard           -> show THIS user's feature toggles + settings
+POST /dashboard/features  -> flip this user's feature flags
+POST /dashboard/settings  -> save this user's settings
 
-The whole point: after login we read the user id from the session and use it
-to scope every database call. A logged-in user only ever sees their own data.
+After login we read the user id from the signed session cookie and use it to
+scope every database call, so a user only ever sees their own data.
 """
 
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
+from flask import Flask, request, render_template, redirect, session
 
 from . import db, auth
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-app = FastAPI(title="Multi-tenant Dashboard Demo")
-
-# SECRET_KEY signs the session cookie so it can't be tampered with.
-# In production load this from an env var / secrets manager, never hardcode.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.environ.get("SECRET_KEY", "dev-only-change-me-in-production"),
+app = Flask(
+    __name__,
+    template_folder=str(BASE_DIR / "templates"),
+    static_folder=str(BASE_DIR / "static"),
+    static_url_path="/static",
 )
 
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+# secret_key signs the session cookie so it can't be tampered with.
+# In production load this from an env var / secrets manager, never hardcode.
+app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-me-in-production")
+
+# Create tables on startup.
+db.init_db()
 
 
-@app.on_event("startup")
-def _startup():
-    db.init_db()
-
-
-# ----------------------------------------------------------------------------
-# Auth dependency: "who is the current user?"
-# ----------------------------------------------------------------------------
-def get_current_user(request: Request):
+def current_user():
     """Return the logged-in user row, or None if not authenticated."""
-    user_id = request.session.get("user_id")
+    user_id = session.get("user_id")
     if not user_id:
         return None
     return db.get_user_by_id(user_id)
 
 
-def require_user(request: Request):
-    """Use on protected routes. Raises a redirect-to-login if not authenticated."""
-    user = get_current_user(request)
-    if user is None:
-        # 303 makes the browser issue a GET to /login
-        raise HTTPException(
-            status_code=303, headers={"Location": "/login"}
-        )
-    return user
-
-
 # ----------------------------------------------------------------------------
 # Public routes
 # ----------------------------------------------------------------------------
-@app.get("/")
-def index(request: Request):
-    if request.session.get("user_id"):
-        return RedirectResponse("/dashboard", status_code=303)
-    return RedirectResponse("/login", status_code=303)
+@app.route("/")
+def index():
+    if session.get("user_id"):
+        return redirect("/dashboard")
+    return redirect("/login")
 
 
-@app.get("/register", response_class=HTMLResponse)
-def register_form(request: Request):
-    return templates.TemplateResponse(
-        "register.html", {"request": request, "error": None}
-    )
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "GET":
+        return render_template("register.html", error=None)
 
+    email = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
 
-@app.post("/register")
-def register_submit(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-):
-    email = email.strip().lower()
     if len(password) < 8:
-        return templates.TemplateResponse(
-            "register.html",
-            {"request": request, "error": "Password must be at least 8 characters."},
-            status_code=400,
-        )
+        return render_template(
+            "register.html", error="Password must be at least 8 characters."
+        ), 400
     if db.get_user_by_email(email):
-        return templates.TemplateResponse(
-            "register.html",
-            {"request": request, "error": "That email is already registered."},
-            status_code=400,
-        )
+        return render_template(
+            "register.html", error="That email is already registered."
+        ), 400
 
     user_id = db.create_user(email, auth.hash_password(password))
-    request.session["user_id"] = user_id  # log them in immediately
-    return RedirectResponse("/dashboard", status_code=303)
+    session["user_id"] = user_id  # log them in immediately
+    return redirect("/dashboard")
 
 
-@app.get("/login", response_class=HTMLResponse)
-def login_form(request: Request):
-    return templates.TemplateResponse(
-        "login.html", {"request": request, "error": None}
-    )
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html", error=None)
 
-
-@app.post("/login")
-def login_submit(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-):
-    email = email.strip().lower()
+    email = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
     user = db.get_user_by_email(email)
-    # Same generic error whether email is unknown or password is wrong,
+
+    # Same generic error whether the email is unknown or the password is wrong,
     # so attackers can't tell which emails exist.
     if user is None or not auth.verify_password(password, user["password_hash"]):
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Invalid email or password."},
-            status_code=401,
-        )
+        return render_template(
+            "login.html", error="Invalid email or password."
+        ), 401
 
-    request.session["user_id"] = user["id"]
-    return RedirectResponse("/dashboard", status_code=303)
+    session["user_id"] = user["id"]
+    return redirect("/dashboard")
 
 
-@app.get("/logout")
-def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse("/login", status_code=303)
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
 
 # ----------------------------------------------------------------------------
 # Protected routes (require a logged-in user)
 # ----------------------------------------------------------------------------
-@app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, user=Depends(require_user)):
-    return templates.TemplateResponse(
+@app.route("/dashboard")
+def dashboard():
+    user = current_user()
+    if user is None:
+        return redirect("/login")
+
+    return render_template(
         "dashboard.html",
-        {
-            "request": request,
-            "email": user["email"],
-            # Scoped by user["id"] -> only THIS user's data.
-            "features": db.get_features(user["id"]),
-            "settings": db.get_settings(user["id"]),
-            "saved": request.query_params.get("saved"),
-        },
+        email=user["email"],
+        # Scoped by user["id"] -> only THIS user's data.
+        features=db.get_features(user["id"]),
+        settings=db.get_settings(user["id"]),
+        saved=request.args.get("saved"),
     )
 
 
-@app.post("/dashboard/features")
-async def update_features(request: Request, user=Depends(require_user)):
-    """
-    Checkboxes only POST when checked. So: read the submitted form, then for
-    every known feature set enabled = (feature present in form).
-    """
-    form = await request.form()
+@app.route("/dashboard/features", methods=["POST"])
+def update_features():
+    user = current_user()
+    if user is None:
+        return redirect("/login")
+
+    # Checkboxes only submit when checked. For each known feature, set
+    # enabled = (feature present in the submitted form).
     current = db.get_features(user["id"])
     for feature_name in current:
-        db.set_feature(user["id"], feature_name, feature_name in form)
-    return RedirectResponse("/dashboard?saved=features", status_code=303)
+        db.set_feature(user["id"], feature_name, feature_name in request.form)
+    return redirect("/dashboard?saved=features")
 
 
-@app.post("/dashboard/settings")
-def update_settings(
-    request: Request,
-    user=Depends(require_user),
-    display_name: str = Form(""),
-    timezone: str = Form("UTC"),
-    items_per_page: str = Form("25"),
-):
-    db.set_setting(user["id"], "display_name", display_name.strip())
-    db.set_setting(user["id"], "timezone", timezone.strip())
-    # keep it numeric and sane
-    ipp = items_per_page.strip()
+@app.route("/dashboard/settings", methods=["POST"])
+def update_settings():
+    user = current_user()
+    if user is None:
+        return redirect("/login")
+
+    display_name = (request.form.get("display_name") or "").strip()
+    timezone = (request.form.get("timezone") or "UTC").strip()
+
+    ipp = (request.form.get("items_per_page") or "25").strip()
     if not ipp.isdigit() or not (1 <= int(ipp) <= 200):
         ipp = "25"
+
+    db.set_setting(user["id"], "display_name", display_name)
+    db.set_setting(user["id"], "timezone", timezone)
     db.set_setting(user["id"], "items_per_page", ipp)
-    return RedirectResponse("/dashboard?saved=settings", status_code=303)
+    return redirect("/dashboard?saved=settings")
